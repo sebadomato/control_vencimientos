@@ -10,20 +10,23 @@ jobs:
     
     - name: Set up environment
       run: |
-        # Crea un directorio donde tengamos permisos
+        # Crea directorios necesarios
         mkdir -p ~/android-tools
-        echo "ANDROID_NDK_HOME=~/android-tools/android-ndk" >> $GITHUB_ENV
-        echo "export ANDROID_NDK_HOME=~/android-tools/android-ndk" >> ~/.bashrc
-        
-    - name: Install dependencies
+        mkdir -p ~/.android
+        touch ~/.android/repositories.cfg
+
+    - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y zip unzip openjdk-17-jdk python3-pip wget
+
+    - name: Install Python dependencies
+      run: |
         pip install cython==0.29.36 buildozer kivy==2.3.0
-        
-        # Instala Android SDK y NDK en nuestro directorio personal
-        mkdir -p ~/.android
-        touch ~/.android/repositories.cfg
+
+    - name: Install Android SDK
+      run: |
+        # Descarga e instala Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d cmdline-tools
         mv cmdline-tools/cmdline-tools cmdline-tools/latest
@@ -31,22 +34,28 @@ jobs:
         # Configura variables de entorno
         echo "ANDROID_HOME=$PWD/cmdline-tools" >> $GITHUB_ENV
         echo "PATH=$PATH:$PWD/cmdline-tools/latest/bin" >> $GITHUB_ENV
+        echo "export PATH=$PATH:$PWD/cmdline-tools/latest/bin" >> ~/.bashrc
+        source ~/.bashrc
         
-        # Acepta licencias
+        # Acepta licencias e instala componentes
         yes | sdkmanager --licenses
         sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
-        
-        # Instala NDK en nuestro directorio personal
+
+    - name: Install Android NDK
+      run: |
+        # Instala NDK en directorio accesible
         wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
         unzip android-ndk-r25b-linux.zip -d ~/android-tools
         mv ~/android-tools/android-ndk-r25b ~/android-tools/android-ndk
+        echo "ANDROID_NDK_HOME=~/android-tools/android-ndk" >> $GITHUB_ENV
 
     - name: Build APK
       run: |
-        # Configura buildozer para usar nuestro NDK
+        # Configura buildozer.spec dinámicamente
         echo "[buildozer]" > buildozer.spec
         echo "android.ndk_path = $HOME/android-tools/android-ndk" >> buildozer.spec
         echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
+        cat buildozer.spec  # Verifica la configuración
         
         buildozer -v android debug
         ls bin/
