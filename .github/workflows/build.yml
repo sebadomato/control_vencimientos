@@ -9,10 +9,10 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y zip unzip openjdk-17-jdk
-        pip install buildozer kivy
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y zip unzip openjdk-17-jdk python3-pip
+    pip install cython==0.29.36 buildozer kivy==2.3.0
 
     - name: Build APK
       run: |
