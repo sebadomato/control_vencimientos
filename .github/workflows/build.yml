@@ -8,26 +8,46 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Set up environment
+      run: |
+        # Crea un directorio donde tengamos permisos
+        mkdir -p ~/android-tools
+        echo "ANDROID_NDK_HOME=~/android-tools/android-ndk" >> $GITHUB_ENV
+        echo "export ANDROID_NDK_HOME=~/android-tools/android-ndk" >> ~/.bashrc
+        
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y zip unzip openjdk-17-jdk python3-pip wget
-        # Configura Android SDK
+        pip install cython==0.29.36 buildozer kivy==2.3.0
+        
+        # Instala Android SDK y NDK en nuestro directorio personal
         mkdir -p ~/.android
         touch ~/.android/repositories.cfg
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d cmdline-tools
         mv cmdline-tools/cmdline-tools cmdline-tools/latest
-        export ANDROID_HOME=$PWD/cmdline-tools
-        export PATH=$PATH:$ANDROID_HOME/latest/bin
+        
+        # Configura variables de entorno
+        echo "ANDROID_HOME=$PWD/cmdline-tools" >> $GITHUB_ENV
+        echo "PATH=$PATH:$PWD/cmdline-tools/latest/bin" >> $GITHUB_ENV
+        
+        # Acepta licencias
         yes | sdkmanager --licenses
         sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
-        # Dependencias Python
-        pip install cython==0.29.36 buildozer kivy==2.3.0
+        
+        # Instala NDK en nuestro directorio personal
+        wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+        unzip android-ndk-r25b-linux.zip -d ~/android-tools
+        mv ~/android-tools/android-ndk-r25b ~/android-tools/android-ndk
 
     - name: Build APK
       run: |
-        export PATH=$PATH:$PWD/cmdline-tools/latest/bin
+        # Configura buildozer para usar nuestro NDK
+        echo "[buildozer]" > buildozer.spec
+        echo "android.ndk_path = $HOME/android-tools/android-ndk" >> buildozer.spec
+        echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
+        
         buildozer -v android debug
         ls bin/
 
