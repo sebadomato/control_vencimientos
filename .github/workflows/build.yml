@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04   # <-- fijamos 22.04
 
     steps:
       - name: Checkout
@@ -18,7 +18,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      # >>> FIX: instalar libtool, automake, autoconf
       - name: Install system deps
         run: |
           sudo apt-get update
