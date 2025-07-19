@@ -25,17 +25,25 @@ jobs:
 
     - name: Install Android SDK
       run: |
+        # Descarga y configura Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d cmdline-tools
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
         
+        # Configura paths CORRECTOS (estructura nueva)
         echo "ANDROID_HOME=$PWD/cmdline-tools" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$PWD/cmdline-tools" >> $GITHUB_ENV
-        echo "$PWD/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$PWD/cmdline-tools/latest/bin:$PATH" >> $GITHUB_PATH
         
-        yes | ./cmdline-tools/latest/bin/sdkmanager --licenses
-        ./cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
+        # Verifica instalación
+        ls -la $PWD/cmdline-tools/latest/bin/
+        $PWD/cmdline-tools/latest/bin/sdkmanager --list
+
+    - name: Accept licenses and install packages
+      run: |
+        yes | $ANDROID_HOME/latest/bin/sdkmanager --licenses
+        $ANDROID_HOME/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
 
     - name: Install Android NDK
       run: |
@@ -43,20 +51,6 @@ jobs:
         unzip android-ndk-r25b-linux.zip -d ~/android-tools
         mv ~/android-tools/android-ndk-r25b ~/android-tools/android-ndk
         echo "ANDROID_NDK_HOME=$HOME/android-tools/android-ndk" >> $GITHUB_ENV
-
-    - name: Prepare buildozer.spec
-      run: |
-        # Actualiza las rutas del SDK/NDK sin modificar el resto
-        sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
-        sed -i "s|android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
-        
-        # Verifica que el archivo sea válido
-        if ! grep -q "title = " buildozer.spec; then
-          echo "Error: Falta configuración esencial en buildozer.spec"
-          exit 1
-        fi
-        echo "✅ buildozer.spec configurado correctamente"
-        cat buildozer.spec
 
     - name: Build APK
       run: |
