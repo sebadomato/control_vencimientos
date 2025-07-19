@@ -39,41 +39,33 @@ jobs:
         echo "ANDROID_SDK_ROOT=$(pwd)/cmdline-tools" >> $GITHUB_ENV
         echo "PATH=$(pwd)/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
         
-        # Aceptar licencias
+        # Aceptar licencias (modo no interactivo)
         yes | cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1
         cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0" "platform-tools" "platforms;android-34"
         
-        # Instalar NDK
+        # Instalar NDK (en la ruta que espera tu spec)
         wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
         unzip -q android-ndk-r25b-linux.zip -d android-ndk
         echo "ANDROID_NDK_HOME=$(pwd)/android-ndk/android-ndk-r25b" >> $GITHUB_ENV
 
-    - name: Configure build
-      run: |
-        # Configuración de Buildozer
-        buildozer init
-        echo -e "\n[buildozer]\nandroid.sdkmanager = $(pwd)/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
-        echo "android.ndk_path = $(pwd)/android-ndk/android-ndk-r25b" >> buildozer.spec
-        echo "android.archs = arm64-v8a" >> buildozer.spec
-        
-        # Configuración adicional
-        echo "p4a.branch = master" >> buildozer.spec
-        echo "android.accept_sdk_license = True" >> buildozer.spec
-
     - name: Build APK
       run: |
-        # Variables de entorno críticas
+        # Configurar variables críticas
         export BUILD_FAILED=False
         export ANDROID_SDK_ROOT=$(pwd)/cmdline-tools
         export ANDROID_NDK_HOME=$(pwd)/android-ndk/android-ndk-r25b
         
+        # Actualizar rutas en tu spec (sin modificar otras configuraciones)
+        sed -i "s|android.sdk_path = .*|android.sdk_path = $(pwd)/cmdline-tools|" buildozer.spec
+        sed -i "s|android.ndk_path = .*|android.ndk_path = $(pwd)/android-ndk/android-ndk-r25b|" buildozer.spec
+        
         # Construir APK
         buildozer -v android debug || export BUILD_FAILED=True
         
-        # Verificar resultado
+        # Mostrar logs si falla
         if [ "$BUILD_FAILED" = "True" ]; then
-          echo "=== ERROR LOG ==="
-          cat .buildozer/android/platform/build-arm64-v8a/dists/controlvencimientos/build/outputs/logs/manifest-merger-debug-report.txt
+          echo "=== ERROR LOGS ==="
+          cat .buildozer/android/platform/build-arm64-v8a/dists/controlvencimientos/build/outputs/logs/*
           exit 1
         fi
         
