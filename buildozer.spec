@@ -16,8 +16,8 @@ requirements = python3,kivy==2.3.0,cython==0.29.36
 
 # Configuración específica para Android
 android.arch = arm64-v8a
-android.sdk_path = ./cmdline-tools
-android.ndk_path = /usr/lib/android-ndk
+android.sdk_path = ./cmdline-tools  # ← Se actualizará automáticamente en CI
+android.ndk_path = /usr/lib/android-ndk  # ← Se actualizará automáticamente en CI
 android.ndk_version = 25b
 android.sdk = 34
 android.minapi = 21
