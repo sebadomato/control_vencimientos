@@ -8,46 +8,51 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          zip unzip openjdk-17-jdk \
+          wget autoconf libtool \
+          pkg-config zlib1g-dev
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y zip unzip openjdk-17-jdk wget
-
-    - name: Install Python packages
-      run: |
+        pip install --upgrade pip
         pip install cython==0.29.36 buildozer kivy==2.3.0
 
-    - name: Install Android SDK
+    - name: Install Android SDK/NDK
       run: |
+        # Install Android SDK
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d cmdline-tools
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
         
-        echo "ANDROID_HOME=$PWD/cmdline-tools" >> $GITHUB_ENV
-        echo "PATH=$PWD/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
+        yes | cmdline-tools/latest/bin/sdkmanager --licenses
+        cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
         
-        yes | ./cmdline-tools/latest/bin/sdkmanager --licenses
-        ./cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
-
-    - name: Install Android NDK
-      run: |
+        # Install NDK
         wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
         unzip android-ndk-r25b-linux.zip -d ~/
+        
+        echo "ANDROID_HOME=$PWD/cmdline-tools" >> $GITHUB_ENV
         echo "ANDROID_NDK_HOME=~/android-ndk-r25b" >> $GITHUB_ENV
+        echo "PATH=$PWD/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
 
     - name: Build APK
       run: |
-        # Actualiza buildozer.spec con rutas dinámicas
-        sed -i '/^android.sdk_path/d' buildozer.spec
-        sed -i '/^android.ndk_path/d' buildozer.spec
-        echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
-        echo "android.ndk_path = $ANDROID_NDK_HOME" >> buildozer.spec
+        # Fix libtool issue
+        export LT_SYS_SYMBOL_USCORE=no
+        
+        # Update buildozer.spec
+        sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
+        sed -i "s|android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
         
         buildozer -v android debug
         ls bin/
