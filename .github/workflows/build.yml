@@ -23,25 +23,26 @@ jobs:
       run: |
         pip install cython==0.29.36 buildozer kivy==2.3.0
 
-    - name: Install Android SDK (NEW STRUCTURE)
+    - name: Install Android SDK (FIXED STRUCTURE)
       run: |
-        # Descarga Command Line Tools
+        # Descarga Command Line Tools en directorio temporal
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip commandlinetools-linux-*.zip -d ~/android-sdk
+        unzip commandlinetools-linux-*.zip -d tmp-cmdline
         
-        # Configuración correcta para la nueva estructura (2023+)
+        # Crea estructura correcta
         mkdir -p ~/android-sdk/cmdline-tools/latest
-        mv ~/android-sdk/cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
+        mv tmp-cmdline/cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
+        rm -rf tmp-cmdline
         
         # Configura variables de entorno
         echo "ANDROID_HOME=~/android-sdk" >> $GITHUB_ENV
         echo "PATH=~/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
         
-        # Verificación crítica
-        echo "Contenido de cmdline-tools:"
+        # Verifica instalación
+        echo "=== Contenido del directorio bin ==="
         ls -la ~/android-sdk/cmdline-tools/latest/bin/
         
-        # Aceptar licencias e instalar componentes
+        # Acepta licencias e instala componentes
         yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
         ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
 
@@ -51,12 +52,16 @@ jobs:
         unzip android-ndk-r25b-linux.zip -d ~/android-sdk
         echo "ANDROID_NDK_HOME=~/android-sdk/android-ndk-r25b" >> $GITHUB_ENV
 
-    - name: Build APK
+    - name: Configure build
       run: |
-        # Configuración dinámica (no tocar el .spec manualmente)
+        # Actualiza rutas en buildozer.spec
         sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
         sed -i "s|android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
-        
+        echo "=== buildozer.spec actualizado ==="
+        cat buildozer.spec
+
+    - name: Build APK
+      run: |
         buildozer -v android debug
         ls bin/
 
