@@ -16,8 +16,9 @@ requirements = python3,kivy==2.3.0,cython==0.29.36
 
 # Configuración específica para Android
 android.arch = arm64-v8a
+# Las rutas se actualizarán automáticamente en CI
 android.sdk_path = ./cmdline-tools
-android.ndk_path = /home/runner/android-tools/android-ndk
+android.ndk_path = ./android-ndk
 android.ndk_version = 25b
 android.sdk = 34
 android.minapi = 21
@@ -33,10 +34,12 @@ android.release_artifact = .apk
 p4a.branch = master
 android.wakelock = True
 
-# Configuración de log
-log_level = 2
-
 [buildozer]
 # Configuración para GitHub Actions
 log_level = 2
 warn_on_root = 1
+
+# SOLUCIÓN CLAVE: Configuración dinámica para CI
+# (Estas líneas las modificará automáticamente el workflow)
+android.sdkmanager = %(android.sdk_path)s/cmdline-tools/latest/bin/sdkmanager
+android.ndk_path = %(android.sdk_path)s/../android-ndk-r25b
