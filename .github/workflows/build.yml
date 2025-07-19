@@ -1,79 +1,53 @@
 name: Build APK
 
-on: [push]
+on:
+  push:
+    branches: [ main ]   # o la rama que uses
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up environment
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          zip unzip openjdk-17-jdk \
-          wget autoconf libtool \
-          pkg-config zlib1g-dev \
-          libncurses5 libtinfo5
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      # Python + Buildozer ya vienen en ubuntu-latest, pero los actualizamos
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip wheel
-        pip install cython==0.29.36 buildozer==1.5.0 kivy==2.3.0
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            openjdk-17-jdk \
+            zip unzip \
+            git build-essential \
+            libffi-dev libssl-dev libjpeg-dev libsqlite3-dev \
+            libxml2-dev libxslt1-dev zlib1g-dev
 
-    - name: Install Android SDK/NDK
-      run: |
-        # Instalar Command Line Tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-*.zip -d cmdline-tools
-        mkdir -p cmdline-tools/latest
-        mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
-        
-        # Configurar entorno
-        echo "ANDROID_SDK_ROOT=$(pwd)/cmdline-tools" >> $GITHUB_ENV
-        echo "PATH=$(pwd)/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
-        
-        # Aceptar licencias (modo no interactivo)
-        yes | cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1
-        cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0" "platform-tools" "platforms;android-34"
-        
-        # Instalar NDK (en la ruta que espera tu spec)
-        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-        unzip -q android-ndk-r25b-linux.zip -d android-ndk
-        echo "ANDROID_NDK_HOME=$(pwd)/android-ndk/android-ndk-r25b" >> $GITHUB_ENV
+      - name: Install Buildozer & Kivy
+        run: |
+          python -m pip install --upgrade pip
+          pip install buildozer cython kivy
 
-    - name: Build APK
-      run: |
-        # Configurar variables críticas
-        export BUILD_FAILED=False
-        export ANDROID_SDK_ROOT=$(pwd)/cmdline-tools
-        export ANDROID_NDK_HOME=$(pwd)/android-ndk/android-ndk-r25b
-        
-        # Actualizar rutas en tu spec (sin modificar otras configuraciones)
-        sed -i "s|android.sdk_path = .*|android.sdk_path = $(pwd)/cmdline-tools|" buildozer.spec
-        sed -i "s|android.ndk_path = .*|android.ndk_path = $(pwd)/android-ndk/android-ndk-r25b|" buildozer.spec
-        
-        # Construir APK
-        buildozer -v android debug || export BUILD_FAILED=True
-        
-        # Mostrar logs si falla
-        if [ "$BUILD_FAILED" = "True" ]; then
-          echo "=== ERROR LOGS ==="
-          cat .buildozer/android/platform/build-arm64-v8a/dists/controlvencimientos/build/outputs/logs/*
-          exit 1
-        fi
-        
-        ls -la bin/
+      # Cache para que no baje todo cada vez
+      - name: Cache Buildozer global dir
+        uses: actions/cache@v3
+        with:
+          path: ~/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
 
-    - name: Upload APK
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: App-Android
-        path: bin/*.apk
+      # Buildozer descarga solo lo que falta (SDK, NDK, etc.)
+      - name: Build APK
+        run: |
+          buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: bin/*.apk
