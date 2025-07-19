@@ -1,0 +1,2 @@
+# Puedes dejarlo vacío o poner una línea con el nombre del módulo principal:
+# default.main.py
