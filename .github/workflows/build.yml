@@ -23,25 +23,29 @@ jobs:
       run: |
         pip install cython==0.29.36 buildozer kivy==2.3.0
 
-    - name: Install Android SDK
+    - name: Install Android SDK (SOLUCIÓN DEFINITIVA)
       run: |
-        # Descargar Command Line Tools
+        # 1. Descargar Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d tmp-cmdline
         
-        # Mover a estructura correcta
+        # 2. Crear estructura CORRECTA (2023+)
         mkdir -p ~/android-sdk/cmdline-tools/latest
         mv tmp-cmdline/cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
         rm -rf tmp-cmdline
         
-        # Configurar variables
+        # 3. Configurar variables de entorno
         echo "ANDROID_HOME=~/android-sdk" >> $GITHUB_ENV
         echo "PATH=~/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
         
-        # SOLUCIÓN CLAVE: Especificar ruta exacta del sdkmanager
-        echo "android.sdkmanager = ~/android-sdk/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
-
-        # Aceptar licencias e instalar componentes
+        # 4. SOLUCIÓN CLAVE: Forzar ruta correcta en buildozer.spec
+        echo -e "\n[buildozer]\nandroid.sdkmanager = ~/android-sdk/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
+        
+        # 5. Verificación crítica
+        echo "=== Verificando instalación ==="
+        ls -la ~/android-sdk/cmdline-tools/latest/bin/
+        
+        # 6. Aceptar licencias e instalar componentes
         yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
         ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
 
@@ -50,21 +54,13 @@ jobs:
         wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
         unzip android-ndk-r25b-linux.zip -d ~/android-sdk
         echo "ANDROID_NDK_HOME=~/android-sdk/android-ndk-r25b" >> $GITHUB_ENV
-        echo "android.ndk_path = ~/android-sdk/android-ndk-r25b" >> buildozer.spec
-
-    - name: Configure build
-      run: |
-        # Actualizar rutas en buildozer.spec
-        sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
-        
-        echo "=== buildozer.spec actualizado ==="
-        cat buildozer.spec
+        echo -e "\nandroid.ndk_path = ~/android-sdk/android-ndk-r25b" >> buildozer.spec
 
     - name: Build APK
       run: |
-        # Configurar variables de entorno
-        export ANDROID_SDK_ROOT=$ANDROID_HOME
-        export ANDROID_NDK_HOME=$ANDROID_NDK_HOME
+        # Configuración final
+        echo "=== buildozer.spec final ==="
+        cat buildozer.spec
         
         buildozer -v android debug
         ls bin/
