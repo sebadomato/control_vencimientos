@@ -6,12 +6,10 @@ source.dir = .
 version = 0.1
 requirements = python3,kivy==2.3.0,cython==0.29.36
 
-# Android config
-android.arch = arm64-v8a
+# Android config (moderna)
+android.archs = arm64-v8a  # Reemplaza android.arch
 android.sdk_path = ./cmdline-tools
 android.ndk_path = ./android-ndk
-android.ndk_version = 25b
-android.sdk = 34
 android.minapi = 21
 android.targetapi = 34
 android.gradle_download = True
