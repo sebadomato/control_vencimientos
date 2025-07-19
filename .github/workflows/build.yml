@@ -23,36 +23,33 @@ jobs:
       run: |
         pip install cython==0.29.36 buildozer kivy==2.3.0
 
-    - name: Install Android SDK (VERIFIED)
+    - name: Install Android SDK (SOLUCIÓN FINAL)
       run: |
-        # 1. Descarga Command Line Tools
+        # Descarga Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d tmp-cmdline
         
-        # 2. Crea estructura necesaria
-        mkdir -p ~/android-sdk/cmdline-tools/latest
-        mv tmp-cmdline/cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
+        # Crea estructura necesaria
+        mkdir -p ~/android-sdk/cmdline-tools
+        mv tmp-cmdline/cmdline-tools ~/android-sdk/cmdline-tools/latest
         rm -rf tmp-cmdline
         
-        # 3. Verificación explícita de archivos
-        echo "=== Contenido de cmdline-tools/latest ==="
-        ls -la ~/android-sdk/cmdline-tools/latest
-        
-        # 4. Configura variables
+        # Configura variables de entorno
         echo "ANDROID_HOME=~/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=~/android-sdk" >> $GITHUB_ENV
         echo "PATH=~/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
         
-        # 5. Verifica existencia de sdkmanager
-        if [ -f ~/android-sdk/cmdline-tools/latest/bin/sdkmanager ]; then
-            echo "✅ sdkmanager encontrado"
-        else
-            echo "❌ sdkmanager NO encontrado"
-            exit 1
-        fi
+        # SOLUCIÓN CLAVE: Crear ruta que Buildozer espera
+        mkdir -p ~/android-sdk/tools
+        ln -s ~/android-sdk/cmdline-tools/latest/bin ~/android-sdk/tools/bin
         
-        # 6. Instala componentes
-        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-        ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
+        # Verificación crítica
+        echo "=== Verificando sdkmanager ==="
+        ls -la ~/android-sdk/tools/bin/sdkmanager
+        
+        # Acepta licencias e instala componentes
+        yes | ~/android-sdk/tools/bin/sdkmanager --licenses
+        ~/android-sdk/tools/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
 
     - name: Install Android NDK
       run: |
@@ -62,17 +59,15 @@ jobs:
 
     - name: Configure build
       run: |
-        # Actualiza buildozer.spec con rutas correctas
+        # Actualiza buildozer.spec
         sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
         sed -i "s|android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
-        
         echo "=== buildozer.spec actualizado ==="
         cat buildozer.spec
 
     - name: Build APK
       run: |
-        # Forzar a Buildozer a usar la ruta correcta
-        echo "Configurando rutas manualmente..."
+        # Forzar rutas correctas
         export ANDROID_SDK_ROOT=$ANDROID_HOME
         export ANDROID_NDK_HOME=$ANDROID_NDK_HOME
         
