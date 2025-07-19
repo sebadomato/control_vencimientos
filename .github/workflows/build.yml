@@ -28,45 +28,59 @@ jobs:
 
     - name: Install Android SDK/NDK
       run: |
-        # Install Android Command Line Tools
+        # 1. Instalar Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d cmdline-tools
+        
+        # 2. Crear estructura CORRECTA (2023+)
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
         
-        # Create symlink for backward compatibility
+        # 3. SOLUCIÓN DEFINITIVA: Enlace simbólico con ruta absoluta
         mkdir -p cmdline-tools/tools
-        ln -s ../latest cmdline-tools/tools/bin
+        ln -s $(pwd)/cmdline-tools/latest/bin $(pwd)/cmdline-tools/tools/bin
         
-        # Accept licenses and install components
-        yes | cmdline-tools/latest/bin/sdkmanager --licenses
-        cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
+        # 4. Verificación
+        echo "=== Estructura de directorios ==="
+        ls -R cmdline-tools
         
-        # Install NDK
+        # 5. Configurar entorno
+        echo "ANDROID_HOME=$(pwd)/cmdline-tools" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$(pwd)/cmdline-tools" >> $GITHUB_ENV
+        echo "PATH=$(pwd)/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
+        
+        # 6. Aceptar licencias e instalar componentes
+        yes | $(pwd)/cmdline-tools/latest/bin/sdkmanager --licenses
+        $(pwd)/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
+        
+        # 7. Instalar NDK
         wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
         unzip android-ndk-r25b-linux.zip -d ~/
-        
-        echo "ANDROID_HOME=$PWD/cmdline-tools" >> $GITHUB_ENV
         echo "ANDROID_NDK_HOME=~/android-ndk-r25b" >> $GITHUB_ENV
-        echo "PATH=$PWD/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
 
     - name: Build APK
       run: |
-        # Fix build issues
+        # 1. Corregir problemas de compilación
         export LT_SYS_SYMBOL_USCORE=no
         
-        # SOLUCIÓN CLAVE: Actualizar config existente sin duplicar sección
+        # 2. Actualizar buildozer.spec sin duplicar secciones
         sed -i '/^android\.sdkmanager/d' buildozer.spec
         sed -i '/^android\.ndk_path/d' buildozer.spec
         sed -i '/^android\.archs/d' buildozer.spec
         
-        # Añadir configuraciones al final del archivo (sin crear nueva sección)
-        echo "android.sdkmanager = $PWD/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
+        echo "android.sdkmanager = $(pwd)/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-ndk-r25b" >> buildozer.spec
         echo "android.archs = arm64-v8a" >> buildozer.spec
         
+        # 3. Verificación final
+        echo "=== buildozer.spec actualizado ==="
+        cat buildozer.spec
+        
+        # 4. Compilar
         buildozer -v android debug
-        ls bin/
+        
+        # 5. Verificar APK generado
+        ls -la bin/
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
