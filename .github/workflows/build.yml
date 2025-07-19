@@ -8,59 +8,46 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up environment
-      run: |
-        mkdir -p ~/android-sdk
-        mkdir -p ~/.android
-        touch ~/.android/repositories.cfg
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
 
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y zip unzip openjdk-17-jdk python3-pip wget
+        sudo apt-get install -y zip unzip openjdk-17-jdk wget
 
-    - name: Install Python dependencies
+    - name: Install Python packages
       run: |
         pip install cython==0.29.36 buildozer kivy==2.3.0
 
-    - name: Install Android SDK (SOLUCIÓN DEFINITIVA)
+    - name: Install Android SDK
       run: |
-        # 1. Descargar Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip commandlinetools-linux-*.zip -d tmp-cmdline
+        unzip commandlinetools-linux-*.zip -d cmdline-tools
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
         
-        # 2. Crear estructura CORRECTA (2023+)
-        mkdir -p ~/android-sdk/cmdline-tools/latest
-        mv tmp-cmdline/cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
-        rm -rf tmp-cmdline
+        echo "ANDROID_HOME=$PWD/cmdline-tools" >> $GITHUB_ENV
+        echo "PATH=$PWD/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
         
-        # 3. Configurar variables de entorno
-        echo "ANDROID_HOME=~/android-sdk" >> $GITHUB_ENV
-        echo "PATH=~/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
-        
-        # 4. SOLUCIÓN CLAVE: Forzar ruta correcta en buildozer.spec
-        echo -e "\n[buildozer]\nandroid.sdkmanager = ~/android-sdk/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
-        
-        # 5. Verificación crítica
-        echo "=== Verificando instalación ==="
-        ls -la ~/android-sdk/cmdline-tools/latest/bin/
-        
-        # 6. Aceptar licencias e instalar componentes
-        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-        ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
+        yes | ./cmdline-tools/latest/bin/sdkmanager --licenses
+        ./cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
 
     - name: Install Android NDK
       run: |
         wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-        unzip android-ndk-r25b-linux.zip -d ~/android-sdk
-        echo "ANDROID_NDK_HOME=~/android-sdk/android-ndk-r25b" >> $GITHUB_ENV
-        echo -e "\nandroid.ndk_path = ~/android-sdk/android-ndk-r25b" >> buildozer.spec
+        unzip android-ndk-r25b-linux.zip -d ~/
+        echo "ANDROID_NDK_HOME=~/android-ndk-r25b" >> $GITHUB_ENV
 
     - name: Build APK
       run: |
-        # Configuración final
-        echo "=== buildozer.spec final ==="
-        cat buildozer.spec
+        # Actualiza buildozer.spec con rutas dinámicas
+        sed -i '/^android.sdk_path/d' buildozer.spec
+        sed -i '/^android.ndk_path/d' buildozer.spec
+        echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
+        echo "android.ndk_path = $ANDROID_NDK_HOME" >> buildozer.spec
         
         buildozer -v android debug
         ls bin/
