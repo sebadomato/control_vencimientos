@@ -28,12 +28,17 @@ jobs:
 
     - name: Install Android SDK/NDK
       run: |
-        # Install Android SDK
+        # Install Android Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d cmdline-tools
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
         
+        # Create symlink for backward compatibility
+        mkdir -p cmdline-tools/tools
+        ln -s ../latest cmdline-tools/tools/bin
+        
+        # Accept licenses and install components
         yes | cmdline-tools/latest/bin/sdkmanager --licenses
         cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
         
@@ -47,12 +52,13 @@ jobs:
 
     - name: Build APK
       run: |
-        # Fix libtool issue
+        # Fix build issues
         export LT_SYS_SYMBOL_USCORE=no
         
-        # Update buildozer.spec
-        sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
-        sed -i "s|android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
+        # Update buildozer.spec with correct paths
+        echo -e "\n[buildozer]\nandroid.sdkmanager = $PWD/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
+        echo "android.ndk_path = $HOME/android-ndk-r25b" >> buildozer.spec
+        echo "android.archs = arm64-v8a" >> buildozer.spec
         
         buildozer -v android debug
         ls bin/
