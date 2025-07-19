@@ -55,8 +55,13 @@ jobs:
         # Fix build issues
         export LT_SYS_SYMBOL_USCORE=no
         
-        # Update buildozer.spec with correct paths
-        echo -e "\n[buildozer]\nandroid.sdkmanager = $PWD/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
+        # SOLUCIÓN CLAVE: Actualizar config existente sin duplicar sección
+        sed -i '/^android\.sdkmanager/d' buildozer.spec
+        sed -i '/^android\.ndk_path/d' buildozer.spec
+        sed -i '/^android\.archs/d' buildozer.spec
+        
+        # Añadir configuraciones al final del archivo (sin crear nueva sección)
+        echo "android.sdkmanager = $PWD/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-ndk-r25b" >> buildozer.spec
         echo "android.archs = arm64-v8a" >> buildozer.spec
         
