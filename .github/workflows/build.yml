@@ -14,7 +14,8 @@ jobs:
         sudo apt-get install -y \
           zip unzip openjdk-17-jdk \
           wget autoconf libtool \
-          pkg-config zlib1g-dev
+          pkg-config zlib1g-dev \
+          libncurses5 libtinfo5
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -23,66 +24,63 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install --upgrade pip
-        pip install cython==0.29.36 buildozer kivy==2.3.0
+        pip install --upgrade pip wheel
+        pip install cython==0.29.36 buildozer==1.5.0 kivy==2.3.0
 
     - name: Install Android SDK/NDK
       run: |
-        # 1. Instalar Command Line Tools
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip commandlinetools-linux-*.zip -d cmdline-tools
-        
-        # 2. Crear estructura CORRECTA (2023+)
+        # Instalar Command Line Tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-*.zip -d cmdline-tools
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
         
-        # 3. SOLUCIÓN DEFINITIVA: Enlace simbólico con ruta absoluta
-        mkdir -p cmdline-tools/tools
-        ln -s $(pwd)/cmdline-tools/latest/bin $(pwd)/cmdline-tools/tools/bin
-        
-        # 4. Verificación
-        echo "=== Estructura de directorios ==="
-        ls -R cmdline-tools
-        
-        # 5. Configurar entorno
-        echo "ANDROID_HOME=$(pwd)/cmdline-tools" >> $GITHUB_ENV
+        # Configurar entorno
         echo "ANDROID_SDK_ROOT=$(pwd)/cmdline-tools" >> $GITHUB_ENV
         echo "PATH=$(pwd)/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
         
-        # 6. Aceptar licencias e instalar componentes
-        yes | $(pwd)/cmdline-tools/latest/bin/sdkmanager --licenses
-        $(pwd)/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
+        # Aceptar licencias
+        yes | cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1
+        cmdline-tools/latest/bin/sdkmanager --install "build-tools;34.0.0" "platform-tools" "platforms;android-34"
         
-        # 7. Instalar NDK
-        wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-        unzip android-ndk-r25b-linux.zip -d ~/
-        echo "ANDROID_NDK_HOME=~/android-ndk-r25b" >> $GITHUB_ENV
+        # Instalar NDK
+        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+        unzip -q android-ndk-r25b-linux.zip -d android-ndk
+        echo "ANDROID_NDK_HOME=$(pwd)/android-ndk/android-ndk-r25b" >> $GITHUB_ENV
+
+    - name: Configure build
+      run: |
+        # Configuración de Buildozer
+        buildozer init
+        echo -e "\n[buildozer]\nandroid.sdkmanager = $(pwd)/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
+        echo "android.ndk_path = $(pwd)/android-ndk/android-ndk-r25b" >> buildozer.spec
+        echo "android.archs = arm64-v8a" >> buildozer.spec
+        
+        # Configuración adicional
+        echo "p4a.branch = master" >> buildozer.spec
+        echo "android.accept_sdk_license = True" >> buildozer.spec
 
     - name: Build APK
       run: |
-        # 1. Corregir problemas de compilación
-        export LT_SYS_SYMBOL_USCORE=no
+        # Variables de entorno críticas
+        export BUILD_FAILED=False
+        export ANDROID_SDK_ROOT=$(pwd)/cmdline-tools
+        export ANDROID_NDK_HOME=$(pwd)/android-ndk/android-ndk-r25b
         
-        # 2. Actualizar buildozer.spec sin duplicar secciones
-        sed -i '/^android\.sdkmanager/d' buildozer.spec
-        sed -i '/^android\.ndk_path/d' buildozer.spec
-        sed -i '/^android\.archs/d' buildozer.spec
+        # Construir APK
+        buildozer -v android debug || export BUILD_FAILED=True
         
-        echo "android.sdkmanager = $(pwd)/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
-        echo "android.ndk_path = $HOME/android-ndk-r25b" >> buildozer.spec
-        echo "android.archs = arm64-v8a" >> buildozer.spec
+        # Verificar resultado
+        if [ "$BUILD_FAILED" = "True" ]; then
+          echo "=== ERROR LOG ==="
+          cat .buildozer/android/platform/build-arm64-v8a/dists/controlvencimientos/build/outputs/logs/manifest-merger-debug-report.txt
+          exit 1
+        fi
         
-        # 3. Verificación final
-        echo "=== buildozer.spec actualizado ==="
-        cat buildozer.spec
-        
-        # 4. Compilar
-        buildozer -v android debug
-        
-        # 5. Verificar APK generado
         ls -la bin/
 
     - name: Upload APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: App-Android
