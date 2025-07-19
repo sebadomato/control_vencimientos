@@ -23,51 +23,46 @@ jobs:
       run: |
         pip install cython==0.29.36 buildozer kivy==2.3.0
 
-    - name: Install Android SDK (SOLUCIÓN FINAL)
+    - name: Install Android SDK
       run: |
-        # Descarga Command Line Tools
+        # Descargar Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d tmp-cmdline
         
-        # Crea estructura necesaria
-        mkdir -p ~/android-sdk/cmdline-tools
-        mv tmp-cmdline/cmdline-tools ~/android-sdk/cmdline-tools/latest
+        # Mover a estructura correcta
+        mkdir -p ~/android-sdk/cmdline-tools/latest
+        mv tmp-cmdline/cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
         rm -rf tmp-cmdline
         
-        # Configura variables de entorno
+        # Configurar variables
         echo "ANDROID_HOME=~/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=~/android-sdk" >> $GITHUB_ENV
         echo "PATH=~/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
         
-        # SOLUCIÓN CLAVE: Crear ruta que Buildozer espera
-        mkdir -p ~/android-sdk/tools
-        ln -s ~/android-sdk/cmdline-tools/latest/bin ~/android-sdk/tools/bin
-        
-        # Verificación crítica
-        echo "=== Verificando sdkmanager ==="
-        ls -la ~/android-sdk/tools/bin/sdkmanager
-        
-        # Acepta licencias e instala componentes
-        yes | ~/android-sdk/tools/bin/sdkmanager --licenses
-        ~/android-sdk/tools/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
+        # SOLUCIÓN CLAVE: Especificar ruta exacta del sdkmanager
+        echo "android.sdkmanager = ~/android-sdk/cmdline-tools/latest/bin/sdkmanager" >> buildozer.spec
+
+        # Aceptar licencias e instalar componentes
+        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
 
     - name: Install Android NDK
       run: |
         wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
         unzip android-ndk-r25b-linux.zip -d ~/android-sdk
         echo "ANDROID_NDK_HOME=~/android-sdk/android-ndk-r25b" >> $GITHUB_ENV
+        echo "android.ndk_path = ~/android-sdk/android-ndk-r25b" >> buildozer.spec
 
     - name: Configure build
       run: |
-        # Actualiza buildozer.spec
+        # Actualizar rutas en buildozer.spec
         sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
-        sed -i "s|android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
+        
         echo "=== buildozer.spec actualizado ==="
         cat buildozer.spec
 
     - name: Build APK
       run: |
-        # Forzar rutas correctas
+        # Configurar variables de entorno
         export ANDROID_SDK_ROOT=$ANDROID_HOME
         export ANDROID_NDK_HOME=$ANDROID_NDK_HOME
         
