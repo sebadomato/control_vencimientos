@@ -25,18 +25,24 @@ jobs:
 
     - name: Install Android SDK
       run: |
-        # Descarga Command Line Tools
+        # Descarga y extrae Command Line Tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip commandlinetools-linux-*.zip -d ~/android-sdk/cmdline-tools
         
+        # Reorganiza la estructura de directorios (¡CRUCIAL!)
+        mkdir -p ~/android-sdk/cmdline-tools/latest
+        mv ~/android-sdk/cmdline-tools/cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
+        
         # Configura paths correctos
         echo "ANDROID_HOME=~/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=~/android-sdk" >> $GITHUB_ENV
-        echo "PATH=~/android-sdk/cmdline-tools/bin:$PATH" >> $GITHUB_ENV
+        echo "PATH=~/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
+        
+        # Verifica la instalación
+        ls -la ~/android-sdk/cmdline-tools/latest/bin/
         
         # Acepta licencias e instala componentes
-        yes | ~/android-sdk/cmdline-tools/bin/sdkmanager --licenses
-        ~/android-sdk/cmdline-tools/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
+        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platform-tools" "platforms;android-34"
 
     - name: Install Android NDK
       run: |
@@ -46,11 +52,10 @@ jobs:
 
     - name: Configure build
       run: |
-        # Actualiza buildozer.spec con rutas correctas
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
+        # Actualiza rutas en buildozer.spec
         sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
         sed -i "s|android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
+        echo "=== buildozer.spec actualizado ==="
         cat buildozer.spec
 
     - name: Build APK
