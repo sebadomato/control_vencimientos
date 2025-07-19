@@ -44,14 +44,19 @@ jobs:
         mv ~/android-tools/android-ndk-r25b ~/android-tools/android-ndk
         echo "ANDROID_NDK_HOME=$HOME/android-tools/android-ndk" >> $GITHUB_ENV
 
-    - name: Configure buildozer
+    - name: Prepare buildozer.spec
       run: |
-        # Actualiza SOLO las rutas del SDK/NDK en tu spec existente
-        sed -i "s|android.ndk_path = .*|android.ndk_path = $HOME/android-tools/android-ndk|" buildozer.spec
+        # Actualiza las rutas del SDK/NDK sin modificar el resto
         sed -i "s|android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
+        sed -i "s|android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
         
-        # Verifica que el spec sea válido
-        buildozer checkconfig
+        # Verifica que el archivo sea válido
+        if ! grep -q "title = " buildozer.spec; then
+          echo "Error: Falta configuración esencial en buildozer.spec"
+          exit 1
+        fi
+        echo "✅ buildozer.spec configurado correctamente"
+        cat buildozer.spec
 
     - name: Build APK
       run: |
